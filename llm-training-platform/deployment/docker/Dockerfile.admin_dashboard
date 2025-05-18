@@ -1,0 +1,34 @@
+# Admin Dashboard Service Dockerfile
+
+# Use the base image
+FROM llm-platform/base:latest
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements file
+COPY src/admin_dashboard/requirements.txt .
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the admin dashboard service code
+COPY src/admin_dashboard /app/src/admin_dashboard
+COPY src/common /app/src/common
+
+# Create necessary directories
+RUN mkdir -p /app/src/admin_dashboard/static/css
+RUN mkdir -p /app/src/admin_dashboard/static/js
+RUN mkdir -p /app/src/admin_dashboard/templates
+RUN mkdir -p /app/logs
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV SERVICE_NAME=admin_dashboard
+ENV SERVICE_PORT=3000
+
+# Expose the port
+EXPOSE 3000
+
+# Set the entrypoint
+CMD ["python", "src/admin_dashboard/main.py"]

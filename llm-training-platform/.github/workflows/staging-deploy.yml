@@ -1,0 +1,664 @@
+name: Staging Deployment
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+
+env:
+  REGISTRY: ghcr.io
+  DEPLOYMENT_DIR: deployments
+
+jobs:
+  prepare:
+    name: Prepare Deployment
+    runs-on: ubuntu-latest
+    outputs:
+      commit_sha: ${{ steps.set-outputs.outputs.commit_sha }}
+      deployment_id: ${{ steps.set-outputs.outputs.deployment_id }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Set up environment variables
+        id: set-outputs
+        run: |
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          DEPLOYMENT_ID="staging-${COMMIT_SHA}"
+          echo "commit_sha=${COMMIT_SHA}" >> $GITHUB_OUTPUT
+          echo "deployment_id=${DEPLOYMENT_ID}" >> $GITHUB_OUTPUT
+          echo "COMMIT_SHA=${COMMIT_SHA}" >> $GITHUB_ENV
+          echo "DEPLOYMENT_ID=${DEPLOYMENT_ID}" >> $GITHUB_ENV
+          
+          # Create deployment directory
+          mkdir -p ${DEPLOYMENT_DIR}/${COMMIT_SHA}
+      
+      - name: Create deployment log
+        run: |
+          echo "# Deployment Log for ${DEPLOYMENT_ID}" > ${DEPLOYMENT_DIR}/${COMMIT_SHA}/deployment.log
+          echo "Started at: $(date)" >> ${DEPLOYMENT_DIR}/${COMMIT_SHA}/deployment.log
+          echo "Commit: ${COMMIT_SHA}" >> ${DEPLOYMENT_DIR}/${COMMIT_SHA}/deployment.log
+          echo "Branch: ${GITHUB_REF_NAME}" >> ${DEPLOYMENT_DIR}/${COMMIT_SHA}/deployment.log
+          echo "" >> ${DEPLOYMENT_DIR}/${COMMIT_SHA}/deployment.log
+      
+      - name: Upload deployment directory
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-artifacts
+          path: ${{ env.DEPLOYMENT_DIR }}
+
+  build:
+    name: Build Docker Images
+    needs: prepare
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Download deployment artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: deployment-artifacts
+          path: ${{ env.DEPLOYMENT_DIR }}
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Build and push base image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./llm-training-platform
+          file: ./llm-training-platform/deployment/docker/Dockerfile.base
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ github.repository }}/base:${{ needs.prepare.outputs.commit_sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Build and push document ingestion image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./llm-training-platform
+          file: ./llm-training-platform/deployment/docker/Dockerfile.document_ingestion
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ github.repository }}/document-ingestion:${{ needs.prepare.outputs.commit_sha }}
+          build-args: |
+            BASE_IMAGE=${{ env.REGISTRY }}/${{ github.repository }}/base:${{ needs.prepare.outputs.commit_sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Build and push data structuring image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./llm-training-platform
+          file: ./llm-training-platform/deployment/docker/Dockerfile.data_structuring
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ github.repository }}/data-structuring:${{ needs.prepare.outputs.commit_sha }}
+          build-args: |
+            BASE_IMAGE=${{ env.REGISTRY }}/${{ github.repository }}/base:${{ needs.prepare.outputs.commit_sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Build and push model training image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./llm-training-platform
+          file: ./llm-training-platform/deployment/docker/Dockerfile.model_training
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ github.repository }}/model-training:${{ needs.prepare.outputs.commit_sha }}
+          build-args: |
+            BASE_IMAGE=${{ env.REGISTRY }}/${{ github.repository }}/base:${{ needs.prepare.outputs.commit_sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Build and push agent deployment image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./llm-training-platform
+          file: ./llm-training-platform/deployment/docker/Dockerfile.agent_deployment
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ github.repository }}/agent-deployment:${{ needs.prepare.outputs.commit_sha }}
+          build-args: |
+            BASE_IMAGE=${{ env.REGISTRY }}/${{ github.repository }}/base:${{ needs.prepare.outputs.commit_sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Build and push admin dashboard image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./llm-training-platform
+          file: ./llm-training-platform/deployment/docker/Dockerfile.admin_dashboard
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ github.repository }}/admin-dashboard:${{ needs.prepare.outputs.commit_sha }}
+          build-args: |
+            BASE_IMAGE=${{ env.REGISTRY }}/${{ github.repository }}/base:${{ needs.prepare.outputs.commit_sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Build and push API gateway image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./llm-training-platform
+          file: ./llm-training-platform/deployment/docker/Dockerfile.api_gateway
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ github.repository }}/api-gateway:${{ needs.prepare.outputs.commit_sha }}
+          build-args: |
+            BASE_IMAGE=${{ env.REGISTRY }}/${{ github.repository }}/base:${{ needs.prepare.outputs.commit_sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Update deployment log
+        run: |
+          echo "## Docker Images" >> ${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          echo "Built and pushed the following images:" >> ${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          echo "- ${{ env.REGISTRY }}/${{ github.repository }}/base:${{ needs.prepare.outputs.commit_sha }}" >> ${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          echo "- ${{ env.REGISTRY }}/${{ github.repository }}/document-ingestion:${{ needs.prepare.outputs.commit_sha }}" >> ${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          echo "- ${{ env.REGISTRY }}/${{ github.repository }}/data-structuring:${{ needs.prepare.outputs.commit_sha }}" >> ${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          echo "- ${{ env.REGISTRY }}/${{ github.repository }}/model-training:${{ needs.prepare.outputs.commit_sha }}" >> ${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          echo "- ${{ env.REGISTRY }}/${{ github.repository }}/agent-deployment:${{ needs.prepare.outputs.commit_sha }}" >> ${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          echo "- ${{ env.REGISTRY }}/${{ github.repository }}/admin-dashboard:${{ needs.prepare.outputs.commit_sha }}" >> ${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          echo "- ${{ env.REGISTRY }}/${{ github.repository }}/api-gateway:${{ needs.prepare.outputs.commit_sha }}" >> ${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          echo "" >> ${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+      
+      - name: Upload updated deployment artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-artifacts
+          path: ${{ env.DEPLOYMENT_DIR }}
+
+  test:
+    name: Run Tests
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Download deployment artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: deployment-artifacts
+          path: ${{ env.DEPLOYMENT_DIR }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r llm-training-platform/requirements.txt
+          pip install pytest pytest-cov
+      
+      - name: Run unit tests
+        run: |
+          cd llm-training-platform
+          python -m pytest tests/unit --cov=src --cov-report=xml -v
+          TEST_EXIT_CODE=$?
+          echo "UNIT_TEST_RESULT=${TEST_EXIT_CODE}" >> $GITHUB_ENV
+          
+          if [ $TEST_EXIT_CODE -eq 0 ]; then
+            echo "Unit tests passed successfully"
+            echo "## Unit Tests" >> ../${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+            echo "✅ Unit tests passed successfully" >> ../${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          else
+            echo "Unit tests failed with exit code ${TEST_EXIT_CODE}"
+            echo "## Unit Tests" >> ../${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+            echo "❌ Unit tests failed with exit code ${TEST_EXIT_CODE}" >> ../${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          fi
+          echo "" >> ../${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+      
+      - name: Run integration tests
+        run: |
+          cd llm-training-platform
+          python -m pytest tests/integration -v
+          TEST_EXIT_CODE=$?
+          echo "INTEGRATION_TEST_RESULT=${TEST_EXIT_CODE}" >> $GITHUB_ENV
+          
+          if [ $TEST_EXIT_CODE -eq 0 ]; then
+            echo "Integration tests passed successfully"
+            echo "## Integration Tests" >> ../${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+            echo "✅ Integration tests passed successfully" >> ../${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          else
+            echo "Integration tests failed with exit code ${TEST_EXIT_CODE}"
+            echo "## Integration Tests" >> ../${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+            echo "❌ Integration tests failed with exit code ${TEST_EXIT_CODE}" >> ../${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          fi
+          echo "" >> ../${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: llm-training-platform/coverage.xml
+      
+      - name: Upload updated deployment artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-artifacts
+          path: ${{ env.DEPLOYMENT_DIR }}
+      
+      - name: Check test results
+        if: ${{ env.UNIT_TEST_RESULT != '0' || env.INTEGRATION_TEST_RESULT != '0' }}
+        run: |
+          echo "Tests failed. Deployment will not proceed."
+          exit 1
+
+  deploy:
+    name: Deploy to Staging
+    needs: [prepare, build, test]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Download deployment artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: deployment-artifacts
+          path: ${{ env.DEPLOYMENT_DIR }}
+      
+      - name: Set up Docker Compose
+        run: |
+          sudo curl -L "https://github.com/docker/compose/releases/download/v2.17.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+      
+      - name: Create staging docker-compose file
+        run: |
+          cat > llm-training-platform/deployment/docker/docker-compose.staging.yml << EOF
+          version: '3.8'
+          
+          services:
+            postgres:
+              image: postgres:14-alpine
+              environment:
+                POSTGRES_USER: \${DB_USER}
+                POSTGRES_PASSWORD: \${DB_PASSWORD}
+                POSTGRES_DB: \${DB_NAME}
+              volumes:
+                - postgres_data:/var/lib/postgresql/data
+              healthcheck:
+                test: ["CMD-SHELL", "pg_isready -U \${DB_USER} -d \${DB_NAME}"]
+                interval: 5s
+                timeout: 5s
+                retries: 5
+            
+            milvus:
+              image: milvusdb/milvus:v2.2.8
+              environment:
+                ETCD_ENDPOINTS: etcd:2379
+                MINIO_ADDRESS: minio:9000
+              depends_on:
+                - etcd
+                - minio
+            
+            etcd:
+              image: quay.io/coreos/etcd:v3.5.5
+              environment:
+                ETCD_AUTO_COMPACTION_MODE: revision
+                ETCD_AUTO_COMPACTION_RETENTION: "1000"
+                ETCD_QUOTA_BACKEND_BYTES: "4294967296"
+            
+            minio:
+              image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+              environment:
+                MINIO_ACCESS_KEY: minioadmin
+                MINIO_SECRET_KEY: minioadmin
+              command: minio server /data
+            
+            api_gateway:
+              image: ${{ env.REGISTRY }}/${{ github.repository }}/api-gateway:${{ needs.prepare.outputs.commit_sha }}
+              environment:
+                DB_HOST: postgres
+                DB_PORT: 5432
+                DB_NAME: \${DB_NAME}
+                DB_USER: \${DB_USER}
+                DB_PASSWORD: \${DB_PASSWORD}
+                JWT_SECRET: \${JWT_SECRET}
+                ENCRYPTION_MASTER_KEY: \${ENCRYPTION_MASTER_KEY}
+              depends_on:
+                postgres:
+                  condition: service_healthy
+              ports:
+                - "8000:8000"
+            
+            document_ingestion:
+              image: ${{ env.REGISTRY }}/${{ github.repository }}/document-ingestion:${{ needs.prepare.outputs.commit_sha }}
+              environment:
+                DB_HOST: postgres
+                DB_PORT: 5432
+                DB_NAME: \${DB_NAME}
+                DB_USER: \${DB_USER}
+                DB_PASSWORD: \${DB_PASSWORD}
+                JWT_SECRET: \${JWT_SECRET}
+                ENCRYPTION_MASTER_KEY: \${ENCRYPTION_MASTER_KEY}
+              depends_on:
+                postgres:
+                  condition: service_healthy
+            
+            data_structuring:
+              image: ${{ env.REGISTRY }}/${{ github.repository }}/data-structuring:${{ needs.prepare.outputs.commit_sha }}
+              environment:
+                DB_HOST: postgres
+                DB_PORT: 5432
+                DB_NAME: \${DB_NAME}
+                DB_USER: \${DB_USER}
+                DB_PASSWORD: \${DB_PASSWORD}
+                JWT_SECRET: \${JWT_SECRET}
+                ENCRYPTION_MASTER_KEY: \${ENCRYPTION_MASTER_KEY}
+                VECTOR_DB_HOST: milvus
+                VECTOR_DB_PORT: 19530
+              depends_on:
+                postgres:
+                  condition: service_healthy
+                milvus:
+                  condition: service_started
+            
+            model_training:
+              image: ${{ env.REGISTRY }}/${{ github.repository }}/model-training:${{ needs.prepare.outputs.commit_sha }}
+              environment:
+                DB_HOST: postgres
+                DB_PORT: 5432
+                DB_NAME: \${DB_NAME}
+                DB_USER: \${DB_USER}
+                DB_PASSWORD: \${DB_PASSWORD}
+                JWT_SECRET: \${JWT_SECRET}
+                ENCRYPTION_MASTER_KEY: \${ENCRYPTION_MASTER_KEY}
+                VECTOR_DB_HOST: milvus
+                VECTOR_DB_PORT: 19530
+              depends_on:
+                postgres:
+                  condition: service_healthy
+                milvus:
+                  condition: service_started
+            
+            agent_deployment:
+              image: ${{ env.REGISTRY }}/${{ github.repository }}/agent-deployment:${{ needs.prepare.outputs.commit_sha }}
+              environment:
+                DB_HOST: postgres
+                DB_PORT: 5432
+                DB_NAME: \${DB_NAME}
+                DB_USER: \${DB_USER}
+                DB_PASSWORD: \${DB_PASSWORD}
+                JWT_SECRET: \${JWT_SECRET}
+                ENCRYPTION_MASTER_KEY: \${ENCRYPTION_MASTER_KEY}
+                VECTOR_DB_HOST: milvus
+                VECTOR_DB_PORT: 19530
+              depends_on:
+                postgres:
+                  condition: service_healthy
+                milvus:
+                  condition: service_started
+            
+            admin_dashboard:
+              image: ${{ env.REGISTRY }}/${{ github.repository }}/admin-dashboard:${{ needs.prepare.outputs.commit_sha }}
+              environment:
+                DB_HOST: postgres
+                DB_PORT: 5432
+                DB_NAME: \${DB_NAME}
+                DB_USER: \${DB_USER}
+                DB_PASSWORD: \${DB_PASSWORD}
+                JWT_SECRET: \${JWT_SECRET}
+                ENCRYPTION_MASTER_KEY: \${ENCRYPTION_MASTER_KEY}
+              depends_on:
+                postgres:
+                  condition: service_healthy
+              ports:
+                - "3000:3000"
+            
+            nginx:
+              image: nginx:alpine
+              ports:
+                - "80:80"
+              volumes:
+                - ./nginx.conf:/etc/nginx/conf.d/default.conf
+              depends_on:
+                - api_gateway
+                - admin_dashboard
+          
+          volumes:
+            postgres_data:
+          EOF
+          
+          # Create nginx configuration with basic auth
+          cat > llm-training-platform/deployment/docker/nginx.conf << EOF
+          server {
+              listen 80;
+              server_name _;
+              
+              auth_basic "Restricted Access";
+              auth_basic_user_file /etc/nginx/.htpasswd;
+              
+              location / {
+                  proxy_pass http://admin_dashboard:3000;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+              }
+              
+              location /api/ {
+                  proxy_pass http://api_gateway:8000;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+              }
+              
+              location /healthz {
+                  proxy_pass http://api_gateway:8000/healthz;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  auth_basic off;
+              }
+          }
+          EOF
+          
+          # Create .htpasswd file for basic auth
+          docker run --rm httpd:alpine htpasswd -bn qa qa123 > llm-training-platform/deployment/docker/.htpasswd
+      
+      - name: Create .env.staging file
+        run: |
+          # In a real scenario, these would be fetched from a secrets manager
+          cat > llm-training-platform/deployment/docker/.env.staging << EOF
+          DB_HOST=postgres
+          DB_PORT=5432
+          DB_NAME=llm_platform
+          DB_USER=postgres
+          DB_PASSWORD=staging_password
+          JWT_SECRET=staging_jwt_secret_key
+          JWT_ALGORITHM=HS256
+          JWT_EXPIRATION_MINUTES=60
+          API_KEY_PREFIX=llm_
+          ENCRYPTION_MASTER_KEY=staging_encryption_master_key
+          ENVIRONMENT=staging
+          EOF
+      
+      - name: Deploy to staging
+        run: |
+          cd llm-training-platform/deployment/docker
+          
+          # Start the staging environment
+          docker-compose -f docker-compose.staging.yml --env-file .env.staging -p ${{ needs.prepare.outputs.deployment_id }} up -d
+          
+          # Wait for services to be ready
+          echo "Waiting for services to be ready..."
+          sleep 30
+          
+          # Run database migrations
+          docker-compose -f docker-compose.staging.yml --env-file .env.staging -p ${{ needs.prepare.outputs.deployment_id }} exec -T api_gateway python -m src.scripts.init_db
+          MIGRATION_EXIT_CODE=$?
+          
+          if [ $MIGRATION_EXIT_CODE -eq 0 ]; then
+            echo "Database migrations completed successfully"
+            echo "## Database Migrations" >> ../../../${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+            echo "✅ Database migrations completed successfully" >> ../../../${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          else
+            echo "Database migrations failed with exit code ${MIGRATION_EXIT_CODE}"
+            echo "## Database Migrations" >> ../../../${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+            echo "❌ Database migrations failed with exit code ${MIGRATION_EXIT_CODE}" >> ../../../${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+            
+            # Rollback deployment
+            docker-compose -f docker-compose.staging.yml --env-file .env.staging -p ${{ needs.prepare.outputs.deployment_id }} down -v
+            exit 1
+          fi
+          echo "" >> ../../../${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          
+          # Create admin user
+          docker-compose -f docker-compose.staging.yml --env-file .env.staging -p ${{ needs.prepare.outputs.deployment_id }} exec -T api_gateway python -m src.scripts.create_admin_user admin password
+          
+          # Seed demo data
+          docker-compose -f docker-compose.staging.yml --env-file .env.staging -p ${{ needs.prepare.outputs.deployment_id }} exec -T api_gateway python -m src.scripts.seed_demo_data
+      
+      - name: Run health checks
+        run: |
+          cd llm-training-platform/deployment/docker
+          
+          # Get the container IP
+          NGINX_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${{ needs.prepare.outputs.deployment_id }}_nginx_1)
+          
+          # Run health checks
+          echo "## Health Checks" >> ../../../${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          
+          # Check /healthz endpoint
+          HEALTHZ_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://${NGINX_IP}/healthz)
+          if [ $HEALTHZ_STATUS -eq 200 ]; then
+            echo "✅ /healthz endpoint check passed (${HEALTHZ_STATUS})" >> ../../../${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          else
+            echo "❌ /healthz endpoint check failed (${HEALTHZ_STATUS})" >> ../../../${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+            HEALTH_CHECK_FAILED=true
+          fi
+          
+          # Check API endpoints with basic auth
+          API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -u qa:qa123 http://${NGINX_IP}/api/v1)
+          if [ $API_STATUS -eq 200 ]; then
+            echo "✅ API endpoint check passed (${API_STATUS})" >> ../../../${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          else
+            echo "❌ API endpoint check failed (${API_STATUS})" >> ../../../${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+            HEALTH_CHECK_FAILED=true
+          fi
+          
+          echo "" >> ../../../${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          
+          if [ "$HEALTH_CHECK_FAILED" = true ]; then
+            echo "Health checks failed. Rolling back deployment."
+            docker-compose -f docker-compose.staging.yml --env-file .env.staging -p ${{ needs.prepare.outputs.deployment_id }} down -v
+            exit 1
+          fi
+      
+      - name: Generate deployment URL
+        id: deployment-url
+        run: |
+          # In a real scenario, this would be a public URL with DNS
+          # For this example, we'll use a placeholder
+          DEPLOYMENT_URL="https://staging-${{ needs.prepare.outputs.commit_sha }}.llm-platform.example.com"
+          echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
+          
+          echo "## Deployment URL" >> ${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          echo "The staging environment is available at: ${DEPLOYMENT_URL}" >> ${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          echo "Basic Auth Credentials:" >> ${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          echo "- Username: qa" >> ${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          echo "- Password: qa123" >> ${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          echo "" >> ${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          echo "API Documentation: ${DEPLOYMENT_URL}/api/v1/docs" >> ${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          echo "" >> ${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+          echo "This URL will be valid for 72 hours." >> ${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/deployment.log
+      
+      - name: Generate deployment summary
+        run: |
+          cat > ${DEPLOYMENT_DIR}/${{ needs.prepare.outputs.commit_sha }}/summary.md << EOF
+          # Staging Deployment Summary
+          
+          ## Deployment Information
+          - **Deployment ID:** ${{ needs.prepare.outputs.deployment_id }}
+          - **Commit:** ${{ needs.prepare.outputs.commit_sha }}
+          - **Branch:** ${GITHUB_REF_NAME}
+          - **Deployed at:** $(date)
+          
+          ## Access Information
+          - **URL:** ${{ steps.deployment-url.outputs.url }}
+          - **Basic Auth:**
+            - Username: qa
+            - Password: qa123
+          - **API Documentation:** ${{ steps.deployment-url.outputs.url }}/api/v1/docs
+          - **Valid until:** $(date -d "+72 hours")
+          
+          ## Docker Images
+          - Base: ${{ env.REGISTRY }}/${{ github.repository }}/base:${{ needs.prepare.outputs.commit_sha }}
+          - Document Ingestion: ${{ env.REGISTRY }}/${{ github.repository }}/document-ingestion:${{ needs.prepare.outputs.commit_sha }}
+          - Data Structuring: ${{ env.REGISTRY }}/${{ github.repository }}/data-structuring:${{ needs.prepare.outputs.commit_sha }}
+          - Model Training: ${{ env.REGISTRY }}/${{ github.repository }}/model-training:${{ needs.prepare.outputs.commit_sha }}
+          - Agent Deployment: ${{ env.REGISTRY }}/${{ github.repository }}/agent-deployment:${{ needs.prepare.outputs.commit_sha }}
+          - Admin Dashboard: ${{ env.REGISTRY }}/${{ github.repository }}/admin-dashboard:${{ needs.prepare.outputs.commit_sha }}
+          - API Gateway: ${{ env.REGISTRY }}/${{ github.repository }}/api-gateway:${{ needs.prepare.outputs.commit_sha }}
+          
+          ## Status
+          - **Database Migrations:** ✅ Success
+          - **Unit Tests:** ✅ Success
+          - **Integration Tests:** ✅ Success
+          - **Health Checks:** ✅ Success
+          
+          ## Demo Data
+          The staging environment has been seeded with demo data. You can log in with:
+          - **Admin User:** admin / password
+          - **Regular User:** user / password
+          
+          ## Notes
+          - This is a temporary staging environment for QA testing
+          - The environment will be automatically destroyed after 72 hours
+          - All data in this environment will be lost when it is destroyed
+          EOF
+      
+      - name: Upload final deployment artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-artifacts
+          path: ${{ env.DEPLOYMENT_DIR }}
+      
+      - name: Create deployment comment
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('${{ env.DEPLOYMENT_DIR }}/${{ needs.prepare.outputs.commit_sha }}/summary.md', 'utf8');
+            
+            const issue_number = context.issue.number;
+            if (issue_number) {
+              github.rest.issues.createComment({
+                issue_number: issue_number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: summary
+              });
+            }
+
+  cleanup:
+    name: Schedule Cleanup
+    needs: [prepare, deploy]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Schedule cleanup
+        uses: actions/github-script@v6
+        with:
+          script: |
+            // In a real scenario, this

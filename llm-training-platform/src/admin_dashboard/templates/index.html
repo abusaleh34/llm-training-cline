@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-dark sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <div class="text-center mb-4">
+                        <h5 class="text-white">LLM Training Platform</h5>
+                        <p class="text-muted">Admin Dashboard</p>
+                    </div>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="#dashboard-section" data-section="dashboard-section">
+                                <i class="bi bi-speedometer2 me-2"></i>
+                                Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#documents-section" data-section="documents-section">
+                                <i class="bi bi-file-earmark-text me-2"></i>
+                                Documents
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#models-section" data-section="models-section">
+                                <i class="bi bi-cpu me-2"></i>
+                                Models
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#agents-section" data-section="agents-section">
+                                <i class="bi bi-robot me-2"></i>
+                                Agents
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#users-section" data-section="users-section">
+                                <i class="bi bi-people me-2"></i>
+                                Users
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#system-section" data-section="system-section">
+                                <i class="bi bi-gear me-2"></i>
+                                System
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#logs-section" data-section="logs-section">
+                                <i class="bi bi-journal-text me-2"></i>
+                                Logs
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Main content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">Dashboard</h1>
+                    <div class="btn-toolbar mb-2 mb-md-0">
+                        <div class="btn-group me-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="refresh-btn">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                            </button>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="timeRangeDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-calendar3"></i> Last 24 hours
+                            </button>
+                            <ul class="dropdown-menu" aria-labelledby="timeRangeDropdown">
+                                <li><a class="dropdown-item" href="#">Last 24 hours</a></li>
+                                <li><a class="dropdown-item" href="#">Last 7 days</a></li>
+                                <li><a class="dropdown-item" href="#">Last 30 days</a></li>
+                                <li><a class="dropdown-item" href="#">Custom range</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dashboard Section -->
+                <div id="dashboard-section" class="section active">
+                    <div class="row">
+                        <div class="col-md-3 mb-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Documents</h5>
+                                    <h2 class="card-text" id="total-documents">0</h2>
+                                    <p class="card-text text-muted">Total documents</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Models</h5>
+                                    <h2 class="card-text" id="total-models">0</h2>
+                                    <p class="card-text text-muted">Total models</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Agents</h5>
+                                    <h2 class="card-text" id="total-agents">0</h2>
+                                    <p class="card-text text-muted">Total agents</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Users</h5>
+                                    <h2 class="card-text" id="total-users">0</h2>
+                                    <p class="card-text text-muted">Total users</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">System Resources</h5>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6>CPU Usage</h6>
+                                            <div class="progress mb-3">
+                                                <div id="cpu-usage" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6>Memory Usage</h6>
+                                            <div class="progress mb-3">
+                                                <div id="memory-usage" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6>Disk Usage</h6>
+                                            <div class="progress mb-3">
+                                                <div id="disk-usage" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6>GPU Usage</h6>
+                                            <div class="progress mb-3">
+                                                <div id="gpu-usage" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Service Status</h5>
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Service</th>
+                                                <th>Status</th>
+                                                <th>Health</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="service-status-table">
+                                            <!-- Service status rows will be inserted here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Recent Activity</h5>
+                                    <div id="recent-activity">
+                                        <!-- Recent activity items will be inserted here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">System Alerts</h5>
+                                    <div id="system-alerts">
+                                        <!-- System alerts will be inserted here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Other sections will be added here -->
+                <div id="documents-section" class="section">
+                    <h2>Documents Management</h2>
+                    <p>This section will contain document management functionality.</p>
+                </div>
+
+                <div id="models-section" class="section">
+                    <h2>Models Management</h2>
+                    <p>This section will contain model management functionality.</p>
+                </div>
+
+                <div id="agents-section" class="section">
+                    <h2>Agents Management</h2>
+                    <p>This section will contain agent management functionality.</p>
+                </div>
+
+                <div id="users-section" class="section">
+                    <h2>Users Management</h2>
+                    <p>This section will contain user management functionality.</p>
+                </div>
+
+                <div id="system-section" class="section">
+                    <h2>System Management</h2>
+                    <p>This section will contain system management functionality.</p>
+                </div>
+
+                <div id="logs-section" class="section">
+                    <h2>Logs</h2>
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <select class="form-select" id="log-service-filter">
+                                            <option value="">All Services</option>
+                                            <option value="api-gateway">API Gateway</option>
+                                            <option value="document-ingestion">Document Ingestion</option>
+                                            <option value="data-structuring">Data Structuring</option>
+                                            <option value="model-training">Model Training</option>
+                                            <option value="agent-deployment">Agent Deployment</option>
+                                            <option value="admin-dashboard">Admin Dashboard</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <select class="form-select" id="log-level-filter">
+                                            <option value="">All Levels</option>
+                                            <option value="DEBUG">DEBUG</option>
+                                            <option value="INFO">INFO</option>
+                                            <option value="WARNING">WARNING</option>
+                                            <option value="ERROR">ERROR</option>
+                                            <option value="CRITICAL">CRITICAL</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="text" class="form-control" id="log-search" placeholder="Search logs...">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button class="btn btn-primary w-100" id="refresh-logs">Refresh</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Timestamp</th>
+                                            <th>Service</th>
+                                            <th>Level</th>
+                                            <th>Message</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="logs-table">
+                                        <!-- Log entries will be inserted here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', path='/js/dashboard.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,249 @@
+/* Admin Dashboard Styles */
+
+body {
+    font-size: .875rem;
+    background-color: #f8f9fa;
+}
+
+.feather {
+    width: 16px;
+    height: 16px;
+    vertical-align: text-bottom;
+}
+
+/* Sidebar */
+.sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 100; /* Behind the navbar */
+    padding: 48px 0 0; /* Height of navbar */
+    box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+}
+
+@media (max-width: 767.98px) {
+    .sidebar {
+        top: 5rem;
+    }
+}
+
+.sidebar-sticky {
+    position: relative;
+    top: 0;
+    height: calc(100vh - 48px);
+    padding-top: .5rem;
+    overflow-x: hidden;
+    overflow-y: auto; /* Scrollable contents if viewport is shorter than content. */
+}
+
+.sidebar .nav-link {
+    font-weight: 500;
+    color: #adb5bd;
+    padding: .75rem 1rem;
+    border-radius: .25rem;
+    margin: 0 .5rem .5rem .5rem;
+}
+
+.sidebar .nav-link:hover {
+    color: #fff;
+    background-color: rgba(255, 255, 255, .1);
+}
+
+.sidebar .nav-link.active {
+    color: #fff;
+    background-color: rgba(255, 255, 255, .2);
+}
+
+.sidebar .nav-link .feather {
+    margin-right: 4px;
+    color: #999;
+}
+
+.sidebar .nav-link.active .feather {
+    color: inherit;
+}
+
+/* Content */
+.section {
+    display: none;
+    padding: 1rem 0;
+}
+
+.section.active {
+    display: block;
+}
+
+/* Cards */
+.card {
+    border-radius: .5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    margin-bottom: 1.5rem;
+}
+
+.card-title {
+    color: #6c757d;
+    font-size: 1rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+}
+
+/* Progress bars */
+.progress {
+    height: 0.8rem;
+    border-radius: 0.5rem;
+}
+
+/* Tables */
+.table-sm th, .table-sm td {
+    padding: 0.5rem;
+}
+
+/* Status indicators */
+.status-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+
+.status-running {
+    background-color: #28a745;
+}
+
+.status-warning {
+    background-color: #ffc107;
+}
+
+.status-error {
+    background-color: #dc3545;
+}
+
+.status-stopped {
+    background-color: #6c757d;
+}
+
+/* Log entries */
+.log-entry {
+    padding: 0.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.log-entry:last-child {
+    border-bottom: none;
+}
+
+.log-level {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: 0.25rem;
+    text-transform: uppercase;
+}
+
+.log-level-debug {
+    background-color: #e9ecef;
+    color: #495057;
+}
+
+.log-level-info {
+    background-color: #cfe2ff;
+    color: #084298;
+}
+
+.log-level-warning {
+    background-color: #fff3cd;
+    color: #664d03;
+}
+
+.log-level-error {
+    background-color: #f8d7da;
+    color: #842029;
+}
+
+.log-level-critical {
+    background-color: #dc3545;
+    color: #fff;
+}
+
+/* Activity feed */
+.activity-item {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+}
+
+.activity-time {
+    font-size: 0.75rem;
+    color: #6c757d;
+}
+
+.activity-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    margin-right: 0.75rem;
+}
+
+.activity-icon-document {
+    background-color: #cfe2ff;
+    color: #084298;
+}
+
+.activity-icon-model {
+    background-color: #d1e7dd;
+    color: #0f5132;
+}
+
+.activity-icon-agent {
+    background-color: #e2e3e5;
+    color: #41464b;
+}
+
+.activity-icon-user {
+    background-color: #f8d7da;
+    color: #842029;
+}
+
+/* Alerts */
+.alert-item {
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+    border-radius: 0.25rem;
+    border-left: 4px solid;
+}
+
+.alert-item-info {
+    background-color: #cfe2ff;
+    border-left-color: #084298;
+}
+
+.alert-item-warning {
+    background-color: #fff3cd;
+    border-left-color: #664d03;
+}
+
+.alert-item-danger {
+    background-color: #f8d7da;
+    border-left-color: #842029;
+}
+
+.alert-item-success {
+    background-color: #d1e7dd;
+    border-left-color: #0f5132;
+}
+
+/* Responsive adjustments */
+@media (max-width: 767.98px) {
+    .card-deck {
+        display: block;
+    }
+}

@@ -1,0 +1,29 @@
+# FastAPI and web server
+fastapi>=0.95.0
+uvicorn>=0.21.1
+pydantic>=1.10.7
+starlette>=0.26.1
+
+# Database
+sqlalchemy>=2.0.9
+alembic>=1.10.3
+asyncpg>=0.27.0
+
+# Authentication
+python-jose>=3.3.0
+passlib>=1.7.4
+bcrypt>=4.0.1
+python-multipart>=0.0.6
+
+# Utilities
+loguru>=0.7.0
+python-dotenv>=1.0.0
+httpx>=0.24.0
+tenacity>=8.2.2
+
+# ML/AI
+transformers>=4.28.1
+torch>=2.0.0
+sentence-transformers>=2.2.2
+faiss-cpu>=1.7.4  # or faiss-gpu if GPU is available
+qdrant-client>=1.1.1

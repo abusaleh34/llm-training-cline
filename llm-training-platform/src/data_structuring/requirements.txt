@@ -1,0 +1,18 @@
+# Data Structuring specific requirements
+fastapi>=0.95.0
+uvicorn>=0.21.1
+python-multipart>=0.0.6
+httpx>=0.24.0
+pydantic>=1.10.7
+loguru>=0.7.0
+pymilvus>=2.2.8
+faiss-cpu>=1.7.4
+numpy>=1.24.3
+scikit-learn>=1.2.2
+sentence-transformers>=2.2.2
+transformers>=4.28.1
+torch>=2.0.0
+nltk>=3.8.1
+arabic-reshaper>=3.0.0
+pyarabic>=0.6.15
+camel-tools>=1.5.0

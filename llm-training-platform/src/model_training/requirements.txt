@@ -1,0 +1,45 @@
+# FastAPI and web server
+fastapi>=0.95.0
+uvicorn>=0.21.1
+pydantic>=1.10.7
+python-multipart>=0.0.6
+python-jose>=3.3.0
+passlib>=1.7.4
+bcrypt>=4.0.1
+
+# Database
+sqlalchemy>=2.0.9
+alembic>=1.10.3
+psycopg2-binary>=2.9.6
+
+# Utilities
+loguru>=0.6.0
+python-dotenv>=1.0.0
+tenacity>=8.2.2
+
+# Machine Learning
+torch>=2.0.0
+transformers>=4.28.1
+datasets>=2.12.0
+accelerate>=0.19.0
+bitsandbytes>=0.39.0
+peft>=0.4.0
+sentencepiece>=0.1.99
+protobuf>=3.20.0
+einops>=0.6.1
+safetensors>=0.3.1
+
+# Arabic NLP
+arabert>=1.0.1
+camel-tools>=1.4.1
+pyarabic>=0.6.15
+
+# Vector database
+faiss-cpu>=1.7.4
+qdrant-client>=1.1.1
+
+# Monitoring
+prometheus-client>=0.16.0
+opentelemetry-api>=1.16.0
+opentelemetry-sdk>=1.16.0
+opentelemetry-exporter-prometheus>=1.16.0

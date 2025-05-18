@@ -1,0 +1,281 @@
+version: '3.8'
+
+services:
+  # API Gateway
+  api-gateway:
+    build:
+      context: ../../
+      dockerfile: deployment/docker/Dockerfile.api_gateway
+    image: llm-platform/api-gateway:latest
+    container_name: llm-platform-api-gateway
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-llm_platform}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - API_DEBUG=${API_DEBUG:-false}
+      - API_PREFIX=${API_PREFIX:-/api/v1}
+      - API_CORS_ORIGINS=${API_CORS_ORIGINS:-["http://localhost:3000"]}
+      - JWT_SECRET=${JWT_SECRET:-your_jwt_secret_key}
+      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
+      - JWT_EXPIRATION_MINUTES=${JWT_EXPIRATION_MINUTES:-60}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_ROTATION=${LOG_ROTATION:-10 MB}
+    volumes:
+      - ../../:/app
+      - static-files:/app/static
+    depends_on:
+      - db
+    networks:
+      - llm-platform-network
+
+  # Document Ingestion Service
+  document-ingestion:
+    build:
+      context: ../../
+      dockerfile: deployment/docker/Dockerfile.document_ingestion
+    image: llm-platform/document-ingestion:latest
+    container_name: llm-platform-document-ingestion
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-llm_platform}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DOCUMENT_STORAGE_PATH=/app/documents
+      - UPLOAD_DIR=${UPLOAD_DIR:-uploads}
+      - PROCESSED_DIR=${PROCESSED_DIR:-processed}
+      - TEMP_DIR=${TEMP_DIR:-temp}
+      - OCR_ENGINE=${OCR_ENGINE:-tesseract}
+      - OCR_LANGUAGES=${OCR_LANGUAGES:-eng,ara}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_ROTATION=${LOG_ROTATION:-10 MB}
+      - SERVICE_PORT=8001
+    volumes:
+      - ../../:/app
+      - document-storage:/app/documents
+    depends_on:
+      - db
+    networks:
+      - llm-platform-network
+
+  # Data Structuring Service
+  data-structuring:
+    build:
+      context: ../../
+      dockerfile: deployment/docker/Dockerfile.data_structuring
+    image: llm-platform/data-structuring:latest
+    container_name: llm-platform-data-structuring
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-llm_platform}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DOCUMENT_STORAGE_PATH=/app/documents
+      - VECTOR_DB_HOST=vector-db
+      - VECTOR_DB_PORT=19530
+      - VECTOR_DB_USER=${VECTOR_DB_USER:-root}
+      - VECTOR_DB_PASSWORD=${VECTOR_DB_PASSWORD:-milvus}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_ROTATION=${LOG_ROTATION:-10 MB}
+      - SERVICE_PORT=8002
+    volumes:
+      - ../../:/app
+      - document-storage:/app/documents
+    depends_on:
+      - db
+      - vector-db
+    networks:
+      - llm-platform-network
+
+  # Model Training Service
+  model-training:
+    build:
+      context: ../../
+      dockerfile: deployment/docker/Dockerfile.model_training
+    image: llm-platform/model-training:latest
+    container_name: llm-platform-model-training
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-llm_platform}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - MODEL_STORAGE_PATH=/app/models
+      - MODEL_CACHE_PATH=/app/cache
+      - MAX_TRAINING_JOBS=${MAX_TRAINING_JOBS:-2}
+      - DEFAULT_BATCH_SIZE=${DEFAULT_BATCH_SIZE:-8}
+      - DEFAULT_LEARNING_RATE=${DEFAULT_LEARNING_RATE:-5e-5}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_ROTATION=${LOG_ROTATION:-10 MB}
+      - SERVICE_PORT=8003
+    volumes:
+      - ../../:/app
+      - model-storage:/app/models
+      - model-cache:/app/cache
+    depends_on:
+      - db
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - llm-platform-network
+
+  # Agent Deployment Service
+  agent-deployment:
+    build:
+      context: ../../
+      dockerfile: deployment/docker/Dockerfile.agent_deployment
+    image: llm-platform/agent-deployment:latest
+    container_name: llm-platform-agent-deployment
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-llm_platform}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - MODEL_STORAGE_PATH=/app/models
+      - VECTOR_DB_HOST=vector-db
+      - VECTOR_DB_PORT=19530
+      - VECTOR_DB_USER=${VECTOR_DB_USER:-root}
+      - VECTOR_DB_PASSWORD=${VECTOR_DB_PASSWORD:-milvus}
+      - MAX_DEPLOYED_AGENTS=${MAX_DEPLOYED_AGENTS:-5}
+      - AGENT_TIMEOUT_SECONDS=${AGENT_TIMEOUT_SECONDS:-30}
+      - DEFAULT_TEMPERATURE=${DEFAULT_TEMPERATURE:-0.7}
+      - DEFAULT_TOP_K=${DEFAULT_TOP_K:-50}
+      - DEFAULT_TOP_P=${DEFAULT_TOP_P:-0.95}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_ROTATION=${LOG_ROTATION:-10 MB}
+      - SERVICE_PORT=8004
+    volumes:
+      - ../../:/app
+      - model-storage:/app/models
+    depends_on:
+      - db
+      - vector-db
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - llm-platform-network
+
+  # Admin Dashboard
+  admin-dashboard:
+    build:
+      context: ../../
+      dockerfile: deployment/docker/Dockerfile.admin_dashboard
+    image: llm-platform/admin-dashboard:latest
+    container_name: llm-platform-admin-dashboard
+    restart: unless-stopped
+    ports:
+      - "${DASHBOARD_PORT:-3000}:3000"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - API_URL=http://api-gateway:8000${API_PREFIX:-/api/v1}
+      - DASHBOARD_PORT=3000
+      - DASHBOARD_DEBUG=${DASHBOARD_DEBUG:-false}
+    depends_on:
+      - api-gateway
+    networks:
+      - llm-platform-network
+
+  # Database
+  db:
+    image: postgres:14-alpine
+    container_name: llm-platform-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${DB_NAME:-llm_platform}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - llm-platform-network
+
+  # Vector Database (Milvus)
+  vector-db:
+    image: milvusdb/milvus:v2.2.3
+    container_name: llm-platform-vector-db
+    restart: unless-stopped
+    environment:
+      - ETCD_ENDPOINTS=etcd:2379
+      - MINIO_ADDRESS=minio:9000
+    volumes:
+      - milvus-data:/var/lib/milvus
+    depends_on:
+      - etcd
+      - minio
+    networks:
+      - llm-platform-network
+
+  # Etcd (for Milvus)
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.0
+    container_name: llm-platform-etcd
+    restart: unless-stopped
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+    volumes:
+      - etcd-data:/etcd
+    command:
+      - etcd
+      - --advertise-client-urls=http://etcd:2379
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --data-dir=/etcd
+    networks:
+      - llm-platform-network
+
+  # MinIO (for Milvus)
+  minio:
+    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+    container_name: llm-platform-minio
+    restart: unless-stopped
+    environment:
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+    volumes:
+      - minio-data:/data
+    command: minio server /data
+    networks:
+      - llm-platform-network
+
+volumes:
+  postgres-data:
+  document-storage:
+  model-storage:
+  model-cache:
+  static-files:
+  milvus-data:
+  etcd-data:
+  minio-data:
+
+networks:
+  llm-platform-network:
+    driver: bridge

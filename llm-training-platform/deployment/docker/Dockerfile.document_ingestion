@@ -1,0 +1,20 @@
+# Document Ingestion Service Dockerfile
+FROM llm-platform/base:latest
+
+# Set environment variables
+ENV SERVICE_NAME=document_ingestion \
+    SERVICE_PORT=8001
+
+# Install additional dependencies specific to document ingestion
+COPY src/document_ingestion/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Set working directory
+WORKDIR /app
+
+# Command to run the service
+CMD ["python", "-m", "src.document_ingestion.main"]
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${SERVICE_PORT}/health || exit 1

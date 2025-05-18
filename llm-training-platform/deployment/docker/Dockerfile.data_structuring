@@ -1,0 +1,30 @@
+# Dockerfile for Data Structuring service
+ARG BASE_IMAGE=ghcr.io/your-org/llm-training-platform/base:latest
+
+FROM ${BASE_IMAGE}
+
+# Set working directory
+WORKDIR /app
+
+# Copy Data Structuring specific requirements
+COPY src/data_structuring/requirements.txt /app/requirements.txt
+
+# Install Data Structuring specific dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the Data Structuring code
+COPY src/data_structuring /app/src/data_structuring
+COPY src/common /app/src/common
+COPY src/security /app/src/security
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV MODULE_NAME=src.data_structuring.main
+ENV VARIABLE_NAME=app
+ENV PORT=8001
+
+# Expose the port
+EXPOSE ${PORT}
+
+# Run the application
+CMD ["uvicorn", "src.data_structuring.main:app", "--host", "0.0.0.0", "--port", "8001"]
